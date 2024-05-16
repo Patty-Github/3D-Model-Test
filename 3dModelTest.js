@@ -8,6 +8,8 @@ camera.position.z = 1;
 const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); // alpha allows for transparent background
 renderer.setPixelRatio( window.devicePixelRatio );
 renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.getElementById("modelArea").appendChild( renderer.domElement ); // add renderer to dom
 
 const planeRotationSlider = document.getElementById("planeRotationSlider");
@@ -18,21 +20,41 @@ import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const controls = new OrbitControls( camera, renderer.domElement );
-const loader = new OBJLoader;
+const objLoader = new OBJLoader;
 const mtlLoader = new THREE.MaterialLoader();
 const gltfLoader = new GLTFLoader;
 
 let githubLogo;
-let plane;
 const brickTextureDiff = new THREE.TextureLoader().load( 'materials/brick_wall_09_diff_2k.jpg' );
 const brickTextureNorm = new THREE.TextureLoader().load( 'materials/brick_wall_09_nor_gl_2k.jpg' );
 
-loader.load(
+let brick;
+gltfLoader.load('./models/brick.glb', function ( gltf ) {
+    brick = gltf.scene;
+    scene.add( brick );
+    brick.translateZ(1.8);
+    brick.scale.set(0.06, 0.06, 0.06);
+
+    brick.traverse((child) => {
+        if ( child.isMesh ) {
+            child.castShadow = true;
+            child.recieveShadow = true;
+        }
+    })
+})
+
+objLoader.load(
     // resource URL 
     'models/githubLogo.obj',
     // called when resource is loaded
     function ( object ) {
         githubLogo = object;
+        githubLogo.traverse((child) => {
+            if ( child.isMesh ) {
+                child.castShadow = true;
+                child.recieveShadow = true;
+            }
+        })
         scene.add( githubLogo );
     },
     // called when loading is in progress
@@ -45,29 +67,35 @@ loader.load(
     }
 );
 
-loader.load(
-    'models/plane.obj',
-    function ( object ) {
-        plane = object;
-        new THREE.MeshStandardMaterial({
-            map: brickTextureDiff,
-            normalMap: brickTextureNorm
-        });
-        scene.add( plane );
-        plane.position.set(0, 0, -0.1);
-    }
-)
+let ground = new THREE.Mesh( 
+    new THREE.BoxGeometry(5, 0.02, 5),
+    new THREE.MeshStandardMaterial( {
+        map: brickTextureDiff,
+        normalMap: brickTextureNorm
+    } ) 
+);
+ground.translateY(-0.5);
+ground.receiveShadow = true;
+ground.castShadow = false;
+scene.add( ground );
 
-/*mtlLoader.load(
-    //'materials/brick_wall_09_2k.gltf',
-    'materials/brick_wall_09_diff_2k.jpg',
+const spotlight = new THREE.SpotLight( 0xffffff, 50, 100, 0.2, 0.5 );
+spotlight.position.set( 0, 10, 0 )
+spotlight.castShadow = true;
+spotlight.visible = true;
+scene.add( spotlight );
 
-    function ( material ) {
-        object.material = material;
-    }
-)*/
+const spotlightFront = new THREE.SpotLight( 0xffffff, 50, 100, 0.2, 0.5 );
+spotlightFront.position.set( 5, 10, 10 )
+spotlightFront.castShadow = true;
+spotlightFront.visible = true;
+spotlightFront.lookAt(0, 0, 0);
+scene.add( spotlightFront );
 
-const topLight = new THREE.DirectionalLight( 0xffffff, 1 ); // colour, intensity
+//const helper = new THREE.SpotLightHelper( spotlightFront, 1, );
+//scene.add( helper );
+
+/*const topLight = new THREE.DirectionalLight( 0xffffff, 1 ); // colour, intensity
 topLight.position.set( -100, 100, 100 );
 topLight.castShadow = true;
 scene.add( topLight );
@@ -80,7 +108,7 @@ scene.add( topLight2 );
 const bottomLight = new THREE.DirectionalLight( 0xffffff, 1 ); // colour, intensity
 bottomLight.position.set( 0, -100, 0 );
 bottomLight.castShadow = true;
-scene.add( bottomLight );
+scene.add( bottomLight );*/
 
 function animate() {
     requestAnimationFrame(animate);
